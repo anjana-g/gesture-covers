@@ -146,6 +146,10 @@
     </select>
     <label style="font-size:10px;color:var(--text-dim);">volume</label>
     <input id="chordVol" type="range" min="-30" max="6" value="-12" style="width:100%;">
+    <label style="font-size:10px;color:var(--text-dim);margin-top:4px;display:block;">attack (light ← → heavy)</label>
+    <input id="chordAttack" type="range" min="0.01" max="1" step="0.01" value="0.03" style="width:100%;">
+    <label style="font-size:10px;color:var(--text-dim);">release (short ← → long)</label>
+    <input id="chordRelease" type="range" min="0.05" max="2.5" step="0.05" value="0.5" style="width:100%;">
     <div id="chordHint" style="font-size:10px;color:var(--text-dim);margin-top:2px;line-height:1.4;"></div>
   </div>
 
@@ -332,7 +336,7 @@ let lastBassMidiNote = null;
 const masterLimiter = new Tone.Limiter(-1).toDestination();
 const chordFilter = new Tone.Filter(2200, 'lowpass').connect(masterLimiter);
 
-const CHORD_ENV = {attack:0.4, decay:0.3, sustain:0.6, release:1.2};
+const CHORD_ENV = {attack:0.03, decay:0.2, sustain:0.35, release:0.5};
 const BASS_ENV = {attack:0.01, decay:0.25, sustain:0.4, release:0.4};
 
 const CHORD_CTORS = {Synth:Tone.Synth, AMSynth:Tone.AMSynth, FMSynth:Tone.FMSynth, MonoSynth:Tone.MonoSynth};
@@ -411,6 +415,12 @@ function swapChordInstrument(){
   chordSynth.dispose();
   chordSynth = makeChordSynth(type, wave);
   chordSynth.volume.value = vol;
+  try{
+    chordSynth.set({envelope:{
+      attack: parseFloat(document.getElementById('chordAttack').value),
+      release: parseFloat(document.getElementById('chordRelease').value)
+    }});
+  }catch(e){}
   updateChordHint();
 }
 function swapBassInstrument(){
@@ -437,6 +447,12 @@ document.getElementById('chordVol').addEventListener('input', (e)=>{
 });
 document.getElementById('bassVol').addEventListener('input', (e)=>{
   bassSynth.volume.rampTo(parseFloat(e.target.value), 0.05);
+});
+document.getElementById('chordAttack').addEventListener('input', (e)=>{
+  try{ chordSynth.set({envelope:{attack: parseFloat(e.target.value)}}); }catch(err){}
+});
+document.getElementById('chordRelease').addEventListener('input', (e)=>{
+  try{ chordSynth.set({envelope:{release: parseFloat(e.target.value)}}); }catch(err){}
 });
 
 updateChordHint();
