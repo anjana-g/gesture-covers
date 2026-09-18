@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>New Song — Gesture Instrument</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root{
+    --bg:#0b0c0a;
+    --panel:#141510;
+    --line:#2a2c22;
+    --gold:#d9a441;
+    --gold-dim:#8a6b2c;
+    --bass:#5ea3a3;
+    --bass-dim:#2f5252;
+    --text:#eae6d8;
+    --text-dim:#8c8a7c;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--bg); color:var(--text);
+    font-family:'Courier New', ui-monospace, monospace;
+    overflow:hidden;
+  }
+  #stage{
+    position:relative; width:100vw; height:100vh;
+    display:flex; align-items:center; justify-content:center;
+  }
+  video{ display:none; }
+  canvas#view{
+    max-width:100%; max-height:100%;
+    border:1px solid var(--line);
+  }
+
+  .hud{
+    position:absolute; z-index:5;
+    background:rgba(11,12,10,0.72);
+    border:1px solid var(--line);
+    padding:10px 14px;
+    backdrop-filter: blur(4px);
+  }
+  #title{
+    top:16px; left:16px; max-width:280px;
+  }
+  #title h1{
+    font-size:13px; letter-spacing:0.5px; margin:0 0 2px 0;
+    color:var(--text);
+  }
+  #title p{ margin:0; font-size:11px; color:var(--text-dim); }
+
+  #progression{
+    top:16px; right:16px; text-align:right;
+  }
+  #progression label{ font-size:10px; color:var(--text-dim); display:block; margin-bottom:4px; }
+  #progInput{
+    background:transparent; border:1px solid var(--line); color:var(--gold);
+    font-family:inherit; font-size:13px; padding:4px 6px; width:220px; text-align:right;
+  }
+
+  #readout{
+    bottom:16px; left:16px; right:16px;
+    display:flex; justify-content:space-between; align-items:flex-end;
+    background:none; border:none; padding:0;
+  }
+
+  .cell{
+    background:rgba(11,12,10,0.72);
+    border:1px solid var(--line);
+    padding:12px 18px; min-width:150px;
+  }
+  .cell.chord{ border-color:var(--gold-dim); }
+  .cell.bass{ border-color:var(--bass-dim); }
+  .cell .lab{ font-size:10px; color:var(--text-dim); letter-spacing:1px; }
+  .cell .val{ font-size:26px; margin-top:2px; }
+  .cell.chord .val{ color:var(--gold); }
+  .cell.bass .val{ color:var(--bass); }
+
+  #startOverlay{
+    position:absolute; inset:0; z-index:20;
+    background:var(--bg);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; gap:18px; padding:24px;
+  }
+  #startOverlay h1{ font-size:20px; margin:0; color:var(--text); }
+  #startOverlay p{ font-size:12px; color:var(--text-dim); max-width:420px; line-height:1.6; margin:0; }
+  button{
+    font-family:inherit; background:transparent; color:var(--gold);
+    border:1px solid var(--gold-dim); padding:10px 22px; font-size:13px;
+    cursor:pointer; letter-spacing:0.5px;
+  }
+  button:hover{ background:rgba(217,164,65,0.1); }
+
+  #controls{
+    position:absolute; top:16px; left:50%; transform:translateX(-50%);
+    display:flex; gap:8px; z-index:5;
+  }
+  #controls button{ font-size:11px; padding:6px 12px; }
+
+  .guide{
+    position:absolute; z-index:4;
+    background:rgba(11,12,10,0.72); border:1px solid var(--line);
+    padding:8px 10px; font-size:10px; color:var(--text-dim); line-height:1.6;
+    max-width:190px;
+  }
+  #guideL{ bottom:80px; left:16px; }
+  #guideR{ bottom:80px; right:16px; text-align:right; }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <video id="webcam" playsinline></video>
+  <canvas id="view"></canvas>
+
+  <div class="hud" id="title">
+    <h1>NEW SONG</h1>
+    <p>left hand → chord &nbsp;·&nbsp; right hand → bassline</p>
+  </div>
+
+  <div class="hud" id="progression">
+    <label>chord slots (1–5 fingers, left hand)</label>
+    <input id="progInput" type="text" value="C, F, G, Am, C" />
+    <label style="margin-top:8px;">bass notes (1–5 fingers, right hand)</label>
+    <input id="bassInput" type="text" value="G2, A2, B2, C3, F2" />
+  </div>
+
+  <div id="controls">
+    <button id="swapBtn">swap hands</button>
+    <button id="mirrorBtn">un-mirror</button>
+  </div>
+
+  <div class="hud" id="chordSoundPanel" style="top:150px; left:16px; max-width:230px;">
+    <label style="font-size:10px;color:var(--text-dim);display:block;">CHORD SOUND</label>
+    <select id="chordInstrument" style="width:100%;margin-bottom:4px;background:transparent;color:var(--gold);border:1px solid var(--line);font-family:inherit;">
+      <option value="Synth">Basic</option>
+      <option value="AMSynth">AM (buzzy)</option>
+      <option value="FMSynth">FM (bell/glass)</option>
+      <option value="MonoSynth">Mono (thicker)</option>
+    </select>
+    <select id="chordWave" style="width:100%;margin-bottom:4px;background:transparent;color:var(--gold);border:1px solid var(--line);font-family:inherit;">
+      <option value="triangle">triangle</option>
+      <option value="sine">sine</option>
+      <option value="square">square</option>
+      <option value="sawtooth">sawtooth</option>
+    </select>
+    <label style="font-size:10px;color:var(--text-dim);">volume</label>
+    <input id="chordVol" type="range" min="-30" max="6" value="-12" style="width:100%;">
+    <div id="chordHint" style="font-size:10px;color:var(--text-dim);margin-top:2px;line-height:1.4;"></div>
+  </div>
+
+  <div class="hud" id="bassSoundPanel" style="top:150px; right:16px; max-width:230px;">
+    <label style="font-size:10px;color:var(--text-dim);display:block;">BASS SOUND</label>
+    <select id="bassInstrument" style="width:100%;margin-bottom:4px;background:transparent;color:var(--bass);border:1px solid var(--line);font-family:inherit;">
+      <option value="Synth">Basic</option>
+      <option value="MonoSynth">Mono (punchy)</option>
+      <option value="FMSynth">FM (metallic)</option>
+      <option value="AMSynth">AM (buzzy)</option>
+      <option value="PluckSynth">Pluck (string)</option>
+      <option value="MembraneSynth">Membrane (thumpy)</option>
+    </select>
+    <select id="bassWave" style="width:100%;margin-bottom:4px;background:transparent;color:var(--bass);border:1px solid var(--line);font-family:inherit;">
+      <option value="sine">sine</option>
+      <option value="triangle">triangle</option>
+      <option value="square">square</option>
+      <option value="sawtooth">sawtooth</option>
+    </select>
+    <label style="font-size:10px;color:var(--text-dim);">volume</label>
+    <input id="bassVol" type="range" min="-30" max="6" value="4" style="width:100%;">
+    <div id="bassHint" style="font-size:10px;color:var(--text-dim);margin-top:2px;line-height:1.4;"></div>
+  </div>
+
+  <div class="guide" id="guideL">
+    <b>LEFT HAND</b><br/>
+    fist = mute<br/>
+    1–5 fingers = chord slot<br/>
+    height = brightness/filter
+  </div>
+  <div class="guide" id="guideR">
+    <b>RIGHT HAND</b><br/>
+    fist = mute<br/>
+    1–5 fingers = bass note<br/>
+    (held like the chord hand)
+  </div>
+
+  <div class="hud" id="readout">
+    <div class="cell chord">
+      <div class="lab">CHORD</div>
+      <div class="val" id="chordVal">—</div>
+    </div>
+    <div class="cell bass">
+      <div class="lab">BASS NOTE</div>
+      <div class="val" id="bassVal">—</div>
+    </div>
+  </div>
+
+  <div class="hud" id="midiPanel" style="bottom:140px; left:50%; transform:translateX(-50%); text-align:center;">
+    <label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:4px;">MIDI OUT (Logic / GarageBand)</label>
+    <button id="midiConnectBtn" style="font-size:11px;padding:5px 10px;">connect MIDI</button>
+    <select id="midiDeviceSelect" style="background:transparent;color:var(--text);border:1px solid var(--line);font-family:inherit;font-size:11px;margin-left:6px;"></select>
+    <div style="margin-top:6px;display:flex;gap:14px;justify-content:center;font-size:10px;color:var(--text-dim);">
+      <label><input type="checkbox" id="chordMidiEnable"/> chords → ch.1</label>
+      <label><input type="checkbox" id="bassMidiEnable"/> bass → ch.2</label>
+    </div>
+    <div id="midiStatus" style="font-size:10px;color:var(--gold);margin-top:4px;"></div>
+  </div>
+
+  <div id="startOverlay">
+    <h1>gesture instrument</h1>
+    <p>
+      Left hand holds the chord. Right hand plays the bassline underneath it —
+      slide to choose the note, pinch to pluck it. Built for the two pallavis
+      of Tere Paas Hoon Main, but the chord slots above are editable for any song.
+      Needs camera access.
+    </p>
+    <button id="startBtn">enable camera &amp; start</button>
+    <p id="errBox" style="color:#c96a4a; font-size:11px; max-width:420px; display:none;"></p>
+  </div>
+</div>
+
+<script src="../vendor/tone/Tone.js"></script>
+<script src="../vendor/mediapipe-hands/hands.js"></script>
+<script src="../vendor/mediapipe-camera-utils/camera_utils.js"></script>
+
+<script>
+/* ---------------- music setup ---------------- */
+
+const NOTE_TO_SEMITONE = {C:0,'C#':1,D:2,'D#':3,E:4,F:5,'F#':6,G:7,'G#':8,A:9,'A#':10,B:11};
+
+function parseChordSymbol(sym){
+  sym = sym.trim();
+  let m = sym.match(/^([A-G][#b]?)(m|maj7|m7|dim|aug|sus4)?$/i);
+  if(!m) return {root:'C', quality:'maj'};
+  let root = m[1].toUpperCase().replace('B#','C').replace('b','#');
+  let quality = (m[2]||'').toLowerCase();
+  if(quality === '') quality = 'maj';
+  return {root, quality};
+}
+
+function chordNotes(root, quality, octave){
+  const r = NOTE_TO_SEMITONE[root] ?? 0;
+  const base = octave*12 + r;
+  let intervals;
+  switch(quality){
+    case 'm': intervals = [0,3,7]; break;
+    case 'm7': intervals = [0,3,7,10]; break;
+    case 'maj7': intervals = [0,4,7,11]; break;
+    case 'dim': intervals = [0,3,6]; break;
+    case 'aug': intervals = [0,4,8]; break;
+    case 'sus4': intervals = [0,5,7]; break;
+    default: intervals = [0,4,7];
+  }
+  return intervals.map(i => midiToNoteName(base+i));
+}
+
+// chord tones used for the bass slider: root, 3rd, 5th, octave-root
+function bassChoicesFor(root, quality, octave){
+  const r = NOTE_TO_SEMITONE[root] ?? 0;
+  const base = octave*12 + r;
+  const third = (quality === 'm' || quality === 'm7' || quality === 'dim') ? 3 : 4;
+  const fifth = quality === 'dim' ? 6 : (quality === 'aug' ? 8 : 7);
+  return [base, base+third, base+fifth, base+12].map(midiToNoteName);
+}
+
+function midiToNoteName(midi){
+  const names = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  const oct = Math.floor(midi/12) - 1; // midi 60 = C4 convention offset handled by caller octave
+  const name = names[((midi%12)+12)%12];
+  return name + oct;
+}
+// NOTE: we build "octave" directly as an integer multiplier of 12 semitones from C0,
+// so midiToNoteName's -1 offset keeps things human-readable (C4 = middle C).
+
+function noteNameToMidi(note){
+  const m = note.match(/^([A-G])(#|b)?(-?\d+)$/);
+  if(!m) return 60;
+  let semitone = NOTE_TO_SEMITONE[m[1]] ?? 0;
+  if(m[2] === '#') semitone += 1;
+  if(m[2] === 'b') semitone -= 1;
+  const oct = parseInt(m[3], 10);
+  return (oct + 1) * 12 + semitone;
+}
+
+/* ---------------- MIDI out (Logic / GarageBand) ---------------- */
+
+let midiAccess = null;
+let midiOutput = null;
+
+function midiStatus(msg){
+  document.getElementById('midiStatus').textContent = msg;
+}
+
+document.getElementById('midiConnectBtn').addEventListener('click', async ()=>{
+  if(!navigator.requestMIDIAccess){
+    midiStatus('Web MIDI not supported in this browser — use Chrome or Edge.');
+    return;
+  }
+  try{
+    midiAccess = await navigator.requestMIDIAccess();
+    const sel = document.getElementById('midiDeviceSelect');
+    sel.innerHTML = '';
+    for(const output of midiAccess.outputs.values()){
+      const opt = document.createElement('option');
+      opt.value = output.id;
+      opt.textContent = output.name;
+      sel.appendChild(opt);
+    }
+    if(sel.options.length === 0){
+      midiStatus('No MIDI outputs found. Enable IAC Driver in Audio MIDI Setup, then reconnect.');
+      return;
+    }
+    midiOutput = midiAccess.outputs.get(sel.value);
+    sel.onchange = ()=>{ midiOutput = midiAccess.outputs.get(sel.value); midiStatus('Using: ' + sel.options[sel.selectedIndex].textContent); };
+    midiStatus('Connected: ' + sel.options[sel.selectedIndex].textContent);
+  }catch(err){
+    midiStatus('MIDI access failed: ' + err.message);
+  }
+});
+
+function midiNoteOn(channel, midiNum, velocity=100){
+  if(midiOutput) midiOutput.send([0x90 | channel, midiNum, velocity]);
+}
+function midiNoteOff(channel, midiNum){
+  if(midiOutput) midiOutput.send([0x80 | channel, midiNum, 0]);
+}
+
+let lastChordMidiNotes = [];
+let lastBassMidiNote = null;
+
+/* ---------------- synths ---------------- */
+
+const masterLimiter = new Tone.Limiter(-1).toDestination();
+const chordFilter = new Tone.Filter(2200, 'lowpass').connect(masterLimiter);
+
+const CHORD_ENV = {attack:0.4, decay:0.3, sustain:0.6, release:1.2};
+const BASS_ENV = {attack:0.01, decay:0.25, sustain:0.4, release:0.4};
+
+const CHORD_CTORS = {Synth:Tone.Synth, AMSynth:Tone.AMSynth, FMSynth:Tone.FMSynth, MonoSynth:Tone.MonoSynth};
+
+function makeChordSynth(type, waveform){
+  const Ctor = CHORD_CTORS[type] || Tone.Synth;
+  const s = new Tone.PolySynth(Ctor, {oscillator:{type:waveform||'triangle'}, envelope:CHORD_ENV});
+  s.connect(chordFilter);
+  return s;
+}
+
+function makeBassSynth(type, waveform){
+  let s;
+  switch(type){
+    case 'MonoSynth': s = new Tone.MonoSynth({oscillator:{type:waveform||'sine'}, envelope:BASS_ENV}); break;
+    case 'FMSynth': s = new Tone.FMSynth({envelope:BASS_ENV}); break;
+    case 'AMSynth': s = new Tone.AMSynth({envelope:BASS_ENV}); break;
+    case 'PluckSynth': s = new Tone.PluckSynth(); break;
+    case 'MembraneSynth': s = new Tone.MembraneSynth(); break;
+    default: s = new Tone.Synth({oscillator:{type:waveform||'sine'}, envelope:BASS_ENV});
+  }
+  s.connect(masterLimiter);
+  return s;
+}
+
+let chordSynth = makeChordSynth('Synth', 'triangle');
+chordSynth.volume.value = -12;
+let bassSynth = makeBassSynth('Synth', 'sine');
+bassSynth.volume.value = 4;
+
+let audioReady = false;
+
+/* ---------------- state ---------------- */
+
+let progression = ['C','F','G','Am','C'];
+let bassNotes = ['G2','A2','B2','C3','F2'];
+let currentChordIdx = -1; // -1 = muted
+let heldChordNotes = [];
+let currentBassIdx = -1;
+let heldBassNote = null;
+
+document.getElementById('progInput').addEventListener('change', (e)=>{
+  progression = e.target.value.split(',').map(s=>s.trim()).filter(Boolean);
+});
+document.getElementById('bassInput').addEventListener('change', (e)=>{
+  bassNotes = e.target.value.split(',').map(s=>s.trim()).filter(Boolean);
+});
+
+const CHORD_HINTS = {
+  Synth: 'plain oscillator — clean, neutral',
+  AMSynth: 'amplitude-modulated — buzzy, slightly metallic',
+  FMSynth: 'frequency-modulated — bell-like, glassy',
+  MonoSynth: 'filtered voice — thicker, more analog-feeling'
+};
+const BASS_HINTS = {
+  Synth: 'plain oscillator bass',
+  MonoSynth: 'filtered — punchier, rounder low end',
+  FMSynth: 'metallic, synthetic bass',
+  AMSynth: 'buzzy, aggressive bass',
+  PluckSynth: 'plucked string, decays on its own — waveform menu has no effect on this one',
+  MembraneSynth: 'thumpy, kick-drum-like low end — cuts through a mix easily'
+};
+
+function updateChordHint(){
+  document.getElementById('chordHint').textContent = CHORD_HINTS[document.getElementById('chordInstrument').value] || '';
+}
+function updateBassHint(){
+  document.getElementById('bassHint').textContent = BASS_HINTS[document.getElementById('bassInstrument').value] || '';
+}
+
+function swapChordInstrument(){
+  const type = document.getElementById('chordInstrument').value;
+  const wave = document.getElementById('chordWave').value;
+  const vol = chordSynth.volume.value;
+  if(heldChordNotes.length){ try{ chordSynth.triggerRelease(heldChordNotes); }catch(e){} heldChordNotes = []; }
+  chordSynth.dispose();
+  chordSynth = makeChordSynth(type, wave);
+  chordSynth.volume.value = vol;
+  updateChordHint();
+}
+function swapBassInstrument(){
+  const type = document.getElementById('bassInstrument').value;
+  const wave = document.getElementById('bassWave').value;
+  const vol = bassSynth.volume.value;
+  if(heldBassNote){ try{ bassSynth.triggerRelease(); }catch(e){} heldBassNote = null; currentBassIdx = -1; }
+  bassSynth.dispose();
+  bassSynth = makeBassSynth(type, wave);
+  bassSynth.volume.value = vol;
+  updateBassHint();
+}
+
+document.getElementById('chordInstrument').addEventListener('change', swapChordInstrument);
+document.getElementById('bassInstrument').addEventListener('change', swapBassInstrument);
+document.getElementById('chordWave').addEventListener('change', (e)=>{
+  try{ chordSynth.set({oscillator:{type:e.target.value}}); }catch(err){}
+});
+document.getElementById('bassWave').addEventListener('change', (e)=>{
+  try{ bassSynth.set({oscillator:{type:e.target.value}}); }catch(err){}
+});
+document.getElementById('chordVol').addEventListener('input', (e)=>{
+  chordSynth.volume.rampTo(parseFloat(e.target.value), 0.05);
+});
+document.getElementById('bassVol').addEventListener('input', (e)=>{
+  bassSynth.volume.rampTo(parseFloat(e.target.value), 0.05);
+});
+
+updateChordHint();
+updateBassHint();
+
+let handsAreSwapped = false;
+document.getElementById('swapBtn').addEventListener('click', ()=>{
+  handsAreSwapped = !handsAreSwapped;
+});
+
+let mirrored = true;
+document.getElementById('mirrorBtn').addEventListener('click', ()=>{
+  mirrored = !mirrored;
+  document.getElementById('mirrorBtn').textContent = mirrored ? 'un-mirror' : 'mirror';
+});
+
+/* ---------------- finger counting ---------------- */
+
+// returns number of extended fingers (0-5) from 21 landmarks
+function countExtendedFingers(landmarks, isRightSideOfScreen){
+  let count = 0;
+  // thumb: compare tip x to ip joint x, direction depends on hand orientation
+  const thumbTip = landmarks[4], thumbIP = landmarks[3], thumbMCP = landmarks[2];
+  const thumbExtended = Math.hypot(thumbTip.x-thumbMCP.x, thumbTip.y-thumbMCP.y) >
+                         Math.hypot(thumbIP.x-thumbMCP.x, thumbIP.y-thumbMCP.y) * 1.3;
+  if(thumbExtended) count++;
+
+  const tips = [8,12,16,20];
+  const pips = [6,10,14,18];
+  for(let i=0;i<4;i++){
+    const tip = landmarks[tips[i]];
+    const pip = landmarks[pips[i]];
+    if(tip.y < pip.y - 0.02) count++; // tip above pip joint = extended (image y grows downward)
+  }
+  return count;
+}
+
+function pinchDistance(landmarks){
+  const t = landmarks[4], i = landmarks[8];
+  return Math.hypot(t.x-i.x, t.y-i.y);
+}
+
+function avgY(landmarks){
+  return landmarks.reduce((s,p)=>s+p.y,0)/landmarks.length;
+}
+function wristX(landmarks){
+  return landmarks[0].x;
+}
+
+/* ---------------- mediapipe hands ---------------- */
+
+const videoEl = document.getElementById('webcam');
+const canvas = document.getElementById('view');
+const ctx = canvas.getContext('2d');
+
+const hands = new Hands({locateFile:(f)=>`../vendor/mediapipe-hands/${f}`});
+hands.setOptions({
+  maxNumHands:2,
+  modelComplexity:1,
+  minDetectionConfidence:0.6,
+  minTrackingConfidence:0.6
+});
+hands.onResults(onResults);
+
+let lastLeft = null, lastRight = null;
+
+function onResults(results){
+  canvas.width = results.image.width;
+  canvas.height = results.image.height;
+  ctx.save();
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(mirrored){
+    ctx.translate(canvas.width,0);
+    ctx.scale(-1,1);
+  }
+  ctx.drawImage(results.image,0,0,canvas.width,canvas.height);
+
+  lastLeft = null; lastRight = null;
+
+  if(results.multiHandLandmarks && results.multiHandedness){
+    results.multiHandLandmarks.forEach((lm, idx)=>{
+      let label = results.multiHandedness[idx].label; // "Left" or "Right" from MediaPipe
+      if(handsAreSwapped) label = (label === 'Left') ? 'Right' : 'Left';
+      drawHand(lm, label === 'Left' ? '#d9a441' : '#5ea3a3');
+      if(label === 'Left') lastLeft = lm; else lastRight = lm;
+    });
+  }
+  ctx.restore();
+
+  processLeftHand(lastLeft);
+  processRightHand(lastRight);
+}
+
+function drawHand(landmarks, color){
+  const W = canvas.width, H = canvas.height;
+  const conns = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],
+                 [0,9],[9,10],[10,11],[11,12],[0,13],[13,14],[14,15],[15,16],
+                 [0,17],[17,18],[18,19],[19,20],[5,9],[9,13],[13,17]];
+  ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.globalAlpha = 0.7;
+  conns.forEach(([a,b])=>{
+    ctx.beginPath();
+    ctx.moveTo(landmarks[a].x*W, landmarks[a].y*H);
+    ctx.lineTo(landmarks[b].x*W, landmarks[b].y*H);
+    ctx.stroke();
+  });
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = color;
+  landmarks.forEach(p=>{
+    ctx.beginPath();
+    ctx.arc(p.x*W, p.y*H, 3, 0, Math.PI*2);
+    ctx.fill();
+  });
+}
+
+/* ---------------- left hand -> chords ---------------- */
+
+function processLeftHand(landmarks){
+  if(!audioReady) return;
+  if(!landmarks){
+    setChord(-1);
+    return;
+  }
+  const fingers = countExtendedFingers(landmarks);
+  if(fingers === 0){
+    setChord(-1);
+  } else {
+    const idx = Math.min(fingers, progression.length) - 1;
+    setChord(idx);
+  }
+  // height controls filter brightness: hand near top (y small) = brighter
+  const y = avgY(landmarks);
+  const freq = 400 + (1-y) * 4000;
+  chordFilter.frequency.rampTo(freq, 0.1);
+}
+
+function setChord(idx){
+  if(idx === currentChordIdx) return;
+  currentChordIdx = idx;
+  if(heldChordNotes.length){
+    try{ chordSynth.triggerRelease(heldChordNotes); }catch(e){}
+    heldChordNotes = [];
+  }
+  if(document.getElementById('chordMidiEnable').checked){
+    lastChordMidiNotes.forEach(n => midiNoteOff(0, n));
+    lastChordMidiNotes = [];
+  }
+  if(idx === -1){
+    document.getElementById('chordVal').textContent = '—';
+    return;
+  }
+  const sym = progression[idx];
+  const {root, quality} = parseChordSymbol(sym);
+  const notes = chordNotes(root, quality, 4);
+  chordSynth.triggerAttack(notes);
+  heldChordNotes = notes;
+  document.getElementById('chordVal').textContent = sym;
+
+  if(document.getElementById('chordMidiEnable').checked){
+    const midiNums = notes.map(noteNameToMidi);
+    midiNums.forEach(n => midiNoteOn(0, n));
+    lastChordMidiNotes = midiNums;
+  }
+}
+
+/* ---------------- right hand -> bass ---------------- */
+
+function processRightHand(landmarks){
+  if(!audioReady){ return; }
+  if(!landmarks){
+    setBass(-1);
+    return;
+  }
+  const fingers = countExtendedFingers(landmarks);
+  if(fingers === 0){
+    setBass(-1);
+  } else {
+    const idx = Math.min(fingers, bassNotes.length) - 1;
+    setBass(idx);
+  }
+}
+
+function setBass(idx){
+  if(idx === currentBassIdx) return;
+  currentBassIdx = idx;
+  if(heldBassNote){
+    try{ bassSynth.triggerRelease(); }catch(e){}
+    heldBassNote = null;
+  }
+  if(document.getElementById('bassMidiEnable').checked && lastBassMidiNote !== null){
+    midiNoteOff(1, lastBassMidiNote);
+    lastBassMidiNote = null;
+  }
+  if(idx === -1){
+    document.getElementById('bassVal').textContent = '—';
+    return;
+  }
+  const note = bassNotes[idx];
+  bassSynth.triggerAttack(note);
+  heldBassNote = note;
+  document.getElementById('bassVal').textContent = note;
+
+  if(document.getElementById('bassMidiEnable').checked){
+    const midiNum = noteNameToMidi(note);
+    midiNoteOn(1, midiNum);
+    lastBassMidiNote = midiNum;
+  }
+}
+
+/* ---------------- start ---------------- */
+
+function showError(msg){
+  const box = document.getElementById('errBox');
+  box.textContent = msg;
+  box.style.display = 'block';
+  console.error(msg);
+}
+
+document.getElementById('startBtn').addEventListener('click', async ()=>{
+  const errBox = document.getElementById('errBox');
+  errBox.style.display = 'none';
+  try{
+    if(typeof Hands === 'undefined'){
+      showError('MediaPipe Hands library did not load (check internet connection / ad-blocker / firewall for cdn.jsdelivr.net).');
+      return;
+    }
+    if(typeof Camera === 'undefined'){
+      showError('MediaPipe camera_utils library did not load (check internet connection / ad-blocker / firewall for cdn.jsdelivr.net).');
+      return;
+    }
+
+    await Tone.start();
+    audioReady = true;
+
+    // Request the camera directly first so we get a clear permission error if denied.
+    const stream = await navigator.mediaDevices.getUserMedia({video:true});
+    videoEl.srcObject = stream;
+    await videoEl.play();
+
+    document.getElementById('startOverlay').style.display = 'none';
+
+    const camera = new Camera(videoEl, {
+      onFrame: async ()=>{ await hands.send({image:videoEl}); },
+      width:960, height:720
+    });
+    camera.start();
+  } catch(err){
+    if(err.name === 'NotAllowedError'){
+      showError('Camera permission was denied. Click the padlock/camera icon in the address bar, allow camera access for this page, then reload and try again.');
+    } else if(err.name === 'NotFoundError'){
+      showError('No camera was found on this device.');
+    } else {
+      showError('Error starting: ' + (err.message || err));
+    }
+  }
+});
+</script>
+</body>
+</html>
