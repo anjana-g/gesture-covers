@@ -121,6 +121,8 @@
   <div class="hud" id="progression">
     <label>chord slots (1–5 fingers, left hand)</label>
     <input id="progInput" type="text" value="C, F, G, Am, C" />
+    <label style="margin-top:6px;">chord octave</label>
+    <input id="chordOctave" type="number" min="2" max="6" value="5" style="width:60px;background:transparent;color:var(--gold);border:1px solid var(--line);font-family:inherit;padding:2px 4px;" />
     <label style="margin-top:8px;">bass notes (1–5 fingers, right hand)</label>
     <input id="bassInput" type="text" value="G2, A2, B2, C3, F2" />
   </div>
@@ -178,22 +180,22 @@
     <b>LEFT HAND</b><br/>
     fist = mute<br/>
     1–5 fingers = chord slot<br/>
-    height = brightness/filter
+    height = volume
   </div>
   <div class="guide" id="guideR">
     <b>RIGHT HAND</b><br/>
     fist = mute<br/>
     1–5 fingers = bass note<br/>
-    (held like the chord hand)
+    height = volume
   </div>
 
   <div class="hud" id="readout">
     <div class="cell chord">
-      <div class="lab">CHORD</div>
+      <div class="lab">CHORD <span id="chordFingers" style="color:var(--text-dim);font-size:10px;"></span></div>
       <div class="val" id="chordVal">—</div>
     </div>
     <div class="cell bass">
-      <div class="lab">BASS NOTE</div>
+      <div class="lab">BASS NOTE <span id="bassFingers" style="color:var(--text-dim);font-size:10px;"></span></div>
       <div class="val" id="bassVal">—</div>
     </div>
   </div>
@@ -334,7 +336,7 @@ let lastBassMidiNote = null;
 /* ---------------- synths ---------------- */
 
 const masterLimiter = new Tone.Limiter(-1).toDestination();
-const chordFilter = new Tone.Filter(2200, 'lowpass').connect(masterLimiter);
+const chordFilter = new Tone.Filter(20000, 'lowpass').connect(masterLimiter); // wide open — no longer hand-controlled
 
 const CHORD_ENV = {attack:0.03, decay:0.2, sustain:0.35, release:0.5};
 const BASS_ENV = {attack:0.01, decay:0.25, sustain:0.4, release:0.4};
@@ -472,12 +474,17 @@ document.getElementById('mirrorBtn').addEventListener('click', ()=>{
 /* ---------------- finger counting ---------------- */
 
 // returns number of extended fingers (0-5) from 21 landmarks
-function countExtendedFingers(landmarks, isRightSideOfScreen){
+function landmarkDist(a, b){
+  return Math.hypot(a.x-b.x, a.y-b.y);
+}
+
+function countExtendedFingers(landmarks){
   let count = 0;
-  // thumb: compare tip x to ip joint x, direction depends on hand orientation
-  const thumbTip = landmarks[4], thumbIP = landmarks[3], thumbMCP = landmarks[2];
-  const thumbExtended = Math.hypot(thumbTip.x-thumbMCP.x, thumbTip.y-thumbMCP.y) >
-                         Math.hypot(thumbIP.x-thumbMCP.x, thumbIP.y-thumbMCP.y) * 1.3;
+  // thumb: tip is far from the pinky-side of the palm when extended, close to it when tucked in.
+  // this distance-based check holds up much better across hand angles/orientations than the
+  // previous tip-vs-ip-along-its-own-axis comparison, which often failed to register "thumb out."
+  const thumbTip = landmarks[4], thumbIP = landmarks[3], pinkyMCP = landmarks[17];
+  const thumbExtended = landmarkDist(thumbTip, pinkyMCP) > landmarkDist(thumbIP, pinkyMCP) * 1.15;
   if(thumbExtended) count++;
 
   const tips = [8,12,16,20];
@@ -573,19 +580,23 @@ function processLeftHand(landmarks){
   if(!audioReady) return;
   if(!landmarks){
     setChord(-1);
+    document.getElementById('chordFingers').textContent = '';
     return;
   }
   const fingers = countExtendedFingers(landmarks);
+  document.getElementById('chordFingers').textContent = '(' + fingers + ' fingers)';
   if(fingers === 0){
     setChord(-1);
   } else {
     const idx = Math.min(fingers, progression.length) - 1;
     setChord(idx);
   }
-  // height controls filter brightness: hand near top (y small) = brighter
   const y = avgY(landmarks);
-  const freq = 400 + (1-y) * 4000;
-  chordFilter.frequency.rampTo(freq, 0.1);
+
+  // height controls volume: bottom of frame = quiet, top = the ceiling set by the volume slider
+  const chordCeil = parseFloat(document.getElementById('chordVol').value);
+  const chordVolTarget = -30 + (1-y) * (chordCeil - (-30));
+  chordSynth.volume.rampTo(chordVolTarget, 0.05);
 }
 
 function setChord(idx){
@@ -605,7 +616,8 @@ function setChord(idx){
   }
   const sym = progression[idx];
   const {root, quality} = parseChordSymbol(sym);
-  const notes = chordNotes(root, quality, 4);
+  const octave = parseInt(document.getElementById('chordOctave').value, 10) || 5;
+  const notes = chordNotes(root, quality, octave);
   chordSynth.triggerAttack(notes);
   heldChordNotes = notes;
   document.getElementById('chordVal').textContent = sym;
@@ -623,15 +635,23 @@ function processRightHand(landmarks){
   if(!audioReady){ return; }
   if(!landmarks){
     setBass(-1);
+    document.getElementById('bassFingers').textContent = '';
     return;
   }
   const fingers = countExtendedFingers(landmarks);
+  document.getElementById('bassFingers').textContent = '(' + fingers + ' fingers)';
   if(fingers === 0){
     setBass(-1);
   } else {
     const idx = Math.min(fingers, bassNotes.length) - 1;
     setBass(idx);
   }
+
+  // height controls volume: bottom of frame = quiet, top = the ceiling set by the volume slider
+  const y = avgY(landmarks);
+  const bassCeil = parseFloat(document.getElementById('bassVol').value);
+  const bassVolTarget = -30 + (1-y) * (bassCeil - (-30));
+  bassSynth.volume.rampTo(bassVolTarget, 0.05);
 }
 
 function setBass(idx){
