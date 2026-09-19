@@ -115,12 +115,15 @@
 
   <div class="hud" id="title">
     <h1>TERE PAAS HOON MAIN</h1>
-    <p>left hand → chord &nbsp;·&nbsp; right hand → bassline</p>
+    <p>left hand → chord &nbsp;·&nbsp; right hand → bassline<br/>sound comes from Logic/GarageBand via MIDI</p>
   </div>
 
   <div class="hud" id="progression">
     <label>chord slots (1–5 fingers, left hand)</label>
-    <input id="progInput" type="text" value="C, F, G, Am, C" />
+    <input id="progInput" type="text" value="C4 E4 G4, A3 C4 F4, B3 D4 G4, Am, C" />
+    <div style="font-size:9px;color:var(--text-dim);margin-top:2px;line-height:1.4;">
+      type a plain symbol (Am) for root position, or exact notes with octaves (A3 C4 F4)<br/>for a specific inversion — mix both freely, comma-separated per slot
+    </div>
     <label style="margin-top:6px;">chord octave</label>
     <input id="chordOctave" type="number" min="2" max="6" value="5" style="width:60px;background:transparent;color:var(--gold);border:1px solid var(--line);font-family:inherit;padding:2px 4px;" />
     <label style="margin-top:8px;">bass notes (1–5 fingers, right hand)</label>
@@ -132,48 +135,18 @@
     <button id="mirrorBtn">un-mirror</button>
   </div>
 
-  <div class="hud" id="chordSoundPanel" style="top:150px; left:16px; max-width:230px;">
-    <label style="font-size:10px;color:var(--text-dim);display:block;">CHORD SOUND</label>
-    <select id="chordInstrument" style="width:100%;margin-bottom:4px;background:transparent;color:var(--gold);border:1px solid var(--line);font-family:inherit;">
-      <option value="Synth">Basic</option>
-      <option value="AMSynth">AM (buzzy)</option>
-      <option value="FMSynth">FM (bell/glass)</option>
-      <option value="MonoSynth">Mono (thicker)</option>
-    </select>
-    <select id="chordWave" style="width:100%;margin-bottom:4px;background:transparent;color:var(--gold);border:1px solid var(--line);font-family:inherit;">
-      <option value="triangle">triangle</option>
-      <option value="sine">sine</option>
-      <option value="square">square</option>
-      <option value="sawtooth">sawtooth</option>
-    </select>
-    <label style="font-size:10px;color:var(--text-dim);">volume</label>
-    <input id="chordVol" type="range" min="-30" max="6" value="-12" style="width:100%;">
-    <label style="font-size:10px;color:var(--text-dim);margin-top:4px;display:block;">attack (light ← → heavy)</label>
-    <input id="chordAttack" type="range" min="0.01" max="1" step="0.01" value="0.03" style="width:100%;">
-    <label style="font-size:10px;color:var(--text-dim);">release (short ← → long)</label>
-    <input id="chordRelease" type="range" min="0.05" max="2.5" step="0.05" value="0.5" style="width:100%;">
-    <div id="chordHint" style="font-size:10px;color:var(--text-dim);margin-top:2px;line-height:1.4;"></div>
+  <div class="hud" id="chordMidiPanel" style="top:150px; left:16px; max-width:200px;">
+    <label style="font-size:10px;color:var(--text-dim);display:block;">CHORD — MIDI ch.1</label>
+    <label style="font-size:10px;color:var(--text-dim);margin-top:4px;display:block;">volume ceiling (height = volume)</label>
+    <input id="chordVol" type="range" min="0" max="127" value="100" style="width:100%;">
+    <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">expression: <span id="chordExprVal">—</span></div>
   </div>
 
-  <div class="hud" id="bassSoundPanel" style="top:150px; right:16px; max-width:230px;">
-    <label style="font-size:10px;color:var(--text-dim);display:block;">BASS SOUND</label>
-    <select id="bassInstrument" style="width:100%;margin-bottom:4px;background:transparent;color:var(--bass);border:1px solid var(--line);font-family:inherit;">
-      <option value="Synth">Basic</option>
-      <option value="MonoSynth">Mono (punchy)</option>
-      <option value="FMSynth">FM (metallic)</option>
-      <option value="AMSynth">AM (buzzy)</option>
-      <option value="PluckSynth">Pluck (string)</option>
-      <option value="MembraneSynth">Membrane (thumpy)</option>
-    </select>
-    <select id="bassWave" style="width:100%;margin-bottom:4px;background:transparent;color:var(--bass);border:1px solid var(--line);font-family:inherit;">
-      <option value="sine">sine</option>
-      <option value="triangle">triangle</option>
-      <option value="square">square</option>
-      <option value="sawtooth">sawtooth</option>
-    </select>
-    <label style="font-size:10px;color:var(--text-dim);">volume</label>
-    <input id="bassVol" type="range" min="-30" max="6" value="4" style="width:100%;">
-    <div id="bassHint" style="font-size:10px;color:var(--text-dim);margin-top:2px;line-height:1.4;"></div>
+  <div class="hud" id="bassMidiPanel" style="top:150px; right:16px; max-width:200px;">
+    <label style="font-size:10px;color:var(--text-dim);display:block;">BASS — MIDI ch.2</label>
+    <label style="font-size:10px;color:var(--text-dim);margin-top:4px;display:block;">volume ceiling (height = volume)</label>
+    <input id="bassVol" type="range" min="0" max="127" value="100" style="width:100%;">
+    <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">expression: <span id="bassExprVal">—</span></div>
   </div>
 
   <div class="guide" id="guideL">
@@ -205,8 +178,8 @@
     <button id="midiConnectBtn" style="font-size:11px;padding:5px 10px;">connect MIDI</button>
     <select id="midiDeviceSelect" style="background:transparent;color:var(--text);border:1px solid var(--line);font-family:inherit;font-size:11px;margin-left:6px;"></select>
     <div style="margin-top:6px;display:flex;gap:14px;justify-content:center;font-size:10px;color:var(--text-dim);">
-      <label><input type="checkbox" id="chordMidiEnable"/> chords → ch.1</label>
-      <label><input type="checkbox" id="bassMidiEnable"/> bass → ch.2</label>
+      <label><input type="checkbox" id="chordMidiEnable" checked/> chords → ch.1</label>
+      <label><input type="checkbox" id="bassMidiEnable" checked/> bass → ch.2</label>
     </div>
     <div id="midiStatus" style="font-size:10px;color:var(--gold);margin-top:4px;"></div>
   </div>
@@ -214,17 +187,15 @@
   <div id="startOverlay">
     <h1>gesture instrument</h1>
     <p>
-      Left hand holds the chord. Right hand plays the bassline underneath it —
-      slide to choose the note, pinch to pluck it. Built for the two pallavis
-      of Tere Paas Hoon Main, but the chord slots above are editable for any song.
-      Needs camera access.
+      Left hand holds the chord. Right hand plays the bassline underneath it.
+      This page only tracks your hands and sends MIDI — click "connect MIDI" after
+      starting, then pick your sounds in Logic/GarageBand. Needs camera access.
     </p>
     <button id="startBtn">enable camera &amp; start</button>
     <p id="errBox" style="color:#c96a4a; font-size:11px; max-width:420px; display:none;"></p>
   </div>
 </div>
 
-<script src="../vendor/tone/Tone.js"></script>
 <script src="../vendor/mediapipe-hands/hands.js"></script>
 <script src="../vendor/mediapipe-camera-utils/camera_utils.js"></script>
 
@@ -259,13 +230,16 @@ function chordNotes(root, quality, octave){
   return intervals.map(i => midiToNoteName(base+i));
 }
 
-// chord tones used for the bass slider: root, 3rd, 5th, octave-root
-function bassChoicesFor(root, quality, octave){
-  const r = NOTE_TO_SEMITONE[root] ?? 0;
-  const base = octave*12 + r;
-  const third = (quality === 'm' || quality === 'm7' || quality === 'dim') ? 3 : 4;
-  const fifth = quality === 'dim' ? 6 : (quality === 'aug' ? 8 : 7);
-  return [base, base+third, base+fifth, base+12].map(midiToNoteName);
+// A chord slot is either a plain symbol ("Am", "G7") — auto-voiced in root position at the
+// current octave — or an explicit voicing: space-separated note names with their own octaves
+// ("A3 C4 F4"), which are used exactly as typed. This is how you dial in specific inversions.
+function resolveChordVoicing(entry, octave){
+  const tokens = entry.trim().split(/\s+/);
+  if(tokens.length > 1){
+    return tokens; // explicit voicing, used as-is
+  }
+  const {root, quality} = parseChordSymbol(entry);
+  return chordNotes(root, quality, octave);
 }
 
 function midiToNoteName(midi){
@@ -312,7 +286,7 @@ document.getElementById('midiConnectBtn').addEventListener('click', async ()=>{
       sel.appendChild(opt);
     }
     if(sel.options.length === 0){
-      midiStatus('No MIDI outputs found. Enable IAC Driver in Audio MIDI Setup, then reconnect.');
+      midiStatus('No MIDI outputs found. Enable IAC Driver (or open Logic Pro), then reconnect.');
       return;
     }
     midiOutput = midiAccess.outputs.get(sel.value);
@@ -329,47 +303,14 @@ function midiNoteOn(channel, midiNum, velocity=100){
 function midiNoteOff(channel, midiNum){
   if(midiOutput) midiOutput.send([0x80 | channel, midiNum, 0]);
 }
+function midiExpression(channel, value){
+  // CC 11 = Expression — the standard, widely-supported way to do continuous
+  // real-time volume control over MIDI while notes are already held.
+  if(midiOutput) midiOutput.send([0xB0 | channel, 11, Math.max(0, Math.min(127, Math.round(value)))]);
+}
 
 let lastChordMidiNotes = [];
 let lastBassMidiNote = null;
-
-/* ---------------- synths ---------------- */
-
-const masterLimiter = new Tone.Limiter(-1).toDestination();
-const chordFilter = new Tone.Filter(20000, 'lowpass').connect(masterLimiter); // wide open — no longer hand-controlled
-
-const CHORD_ENV = {attack:0.03, decay:0.2, sustain:0.35, release:0.5};
-const BASS_ENV = {attack:0.01, decay:0.25, sustain:0.4, release:0.4};
-
-const CHORD_CTORS = {Synth:Tone.Synth, AMSynth:Tone.AMSynth, FMSynth:Tone.FMSynth, MonoSynth:Tone.MonoSynth};
-
-function makeChordSynth(type, waveform){
-  const Ctor = CHORD_CTORS[type] || Tone.Synth;
-  const s = new Tone.PolySynth(Ctor, {oscillator:{type:waveform||'triangle'}, envelope:CHORD_ENV});
-  s.connect(chordFilter);
-  return s;
-}
-
-function makeBassSynth(type, waveform){
-  let s;
-  switch(type){
-    case 'MonoSynth': s = new Tone.MonoSynth({oscillator:{type:waveform||'sine'}, envelope:BASS_ENV}); break;
-    case 'FMSynth': s = new Tone.FMSynth({envelope:BASS_ENV}); break;
-    case 'AMSynth': s = new Tone.AMSynth({envelope:BASS_ENV}); break;
-    case 'PluckSynth': s = new Tone.PluckSynth(); break;
-    case 'MembraneSynth': s = new Tone.MembraneSynth(); break;
-    default: s = new Tone.Synth({oscillator:{type:waveform||'sine'}, envelope:BASS_ENV});
-  }
-  s.connect(masterLimiter);
-  return s;
-}
-
-let chordSynth = makeChordSynth('Synth', 'triangle');
-chordSynth.volume.value = -12;
-let bassSynth = makeBassSynth('Synth', 'sine');
-bassSynth.volume.value = 4;
-
-let audioReady = false;
 
 /* ---------------- state ---------------- */
 
@@ -379,6 +320,7 @@ let currentChordIdx = -1; // -1 = muted
 let heldChordNotes = [];
 let currentBassIdx = -1;
 let heldBassNote = null;
+let running = false;
 
 document.getElementById('progInput').addEventListener('change', (e)=>{
   progression = e.target.value.split(',').map(s=>s.trim()).filter(Boolean);
@@ -386,79 +328,6 @@ document.getElementById('progInput').addEventListener('change', (e)=>{
 document.getElementById('bassInput').addEventListener('change', (e)=>{
   bassNotes = e.target.value.split(',').map(s=>s.trim()).filter(Boolean);
 });
-
-const CHORD_HINTS = {
-  Synth: 'plain oscillator — clean, neutral',
-  AMSynth: 'amplitude-modulated — buzzy, slightly metallic',
-  FMSynth: 'frequency-modulated — bell-like, glassy',
-  MonoSynth: 'filtered voice — thicker, more analog-feeling'
-};
-const BASS_HINTS = {
-  Synth: 'plain oscillator bass',
-  MonoSynth: 'filtered — punchier, rounder low end',
-  FMSynth: 'metallic, synthetic bass',
-  AMSynth: 'buzzy, aggressive bass',
-  PluckSynth: 'plucked string, decays on its own — waveform menu has no effect on this one',
-  MembraneSynth: 'thumpy, kick-drum-like low end — cuts through a mix easily'
-};
-
-function updateChordHint(){
-  document.getElementById('chordHint').textContent = CHORD_HINTS[document.getElementById('chordInstrument').value] || '';
-}
-function updateBassHint(){
-  document.getElementById('bassHint').textContent = BASS_HINTS[document.getElementById('bassInstrument').value] || '';
-}
-
-function swapChordInstrument(){
-  const type = document.getElementById('chordInstrument').value;
-  const wave = document.getElementById('chordWave').value;
-  const vol = chordSynth.volume.value;
-  if(heldChordNotes.length){ try{ chordSynth.triggerRelease(heldChordNotes); }catch(e){} heldChordNotes = []; }
-  chordSynth.dispose();
-  chordSynth = makeChordSynth(type, wave);
-  chordSynth.volume.value = vol;
-  try{
-    chordSynth.set({envelope:{
-      attack: parseFloat(document.getElementById('chordAttack').value),
-      release: parseFloat(document.getElementById('chordRelease').value)
-    }});
-  }catch(e){}
-  updateChordHint();
-}
-function swapBassInstrument(){
-  const type = document.getElementById('bassInstrument').value;
-  const wave = document.getElementById('bassWave').value;
-  const vol = bassSynth.volume.value;
-  if(heldBassNote){ try{ bassSynth.triggerRelease(); }catch(e){} heldBassNote = null; currentBassIdx = -1; }
-  bassSynth.dispose();
-  bassSynth = makeBassSynth(type, wave);
-  bassSynth.volume.value = vol;
-  updateBassHint();
-}
-
-document.getElementById('chordInstrument').addEventListener('change', swapChordInstrument);
-document.getElementById('bassInstrument').addEventListener('change', swapBassInstrument);
-document.getElementById('chordWave').addEventListener('change', (e)=>{
-  try{ chordSynth.set({oscillator:{type:e.target.value}}); }catch(err){}
-});
-document.getElementById('bassWave').addEventListener('change', (e)=>{
-  try{ bassSynth.set({oscillator:{type:e.target.value}}); }catch(err){}
-});
-document.getElementById('chordVol').addEventListener('input', (e)=>{
-  chordSynth.volume.rampTo(parseFloat(e.target.value), 0.05);
-});
-document.getElementById('bassVol').addEventListener('input', (e)=>{
-  bassSynth.volume.rampTo(parseFloat(e.target.value), 0.05);
-});
-document.getElementById('chordAttack').addEventListener('input', (e)=>{
-  try{ chordSynth.set({envelope:{attack: parseFloat(e.target.value)}}); }catch(err){}
-});
-document.getElementById('chordRelease').addEventListener('input', (e)=>{
-  try{ chordSynth.set({envelope:{release: parseFloat(e.target.value)}}); }catch(err){}
-});
-
-updateChordHint();
-updateBassHint();
 
 let handsAreSwapped = false;
 document.getElementById('swapBtn').addEventListener('click', ()=>{
@@ -473,16 +342,14 @@ document.getElementById('mirrorBtn').addEventListener('click', ()=>{
 
 /* ---------------- finger counting ---------------- */
 
-// returns number of extended fingers (0-5) from 21 landmarks
 function landmarkDist(a, b){
   return Math.hypot(a.x-b.x, a.y-b.y);
 }
 
+// returns number of extended fingers (0-5) from 21 landmarks
 function countExtendedFingers(landmarks){
   let count = 0;
   // thumb: tip is far from the pinky-side of the palm when extended, close to it when tucked in.
-  // this distance-based check holds up much better across hand angles/orientations than the
-  // previous tip-vs-ip-along-its-own-axis comparison, which often failed to register "thumb out."
   const thumbTip = landmarks[4], thumbIP = landmarks[3], pinkyMCP = landmarks[17];
   const thumbExtended = landmarkDist(thumbTip, pinkyMCP) > landmarkDist(thumbIP, pinkyMCP) * 1.15;
   if(thumbExtended) count++;
@@ -497,16 +364,8 @@ function countExtendedFingers(landmarks){
   return count;
 }
 
-function pinchDistance(landmarks){
-  const t = landmarks[4], i = landmarks[8];
-  return Math.hypot(t.x-i.x, t.y-i.y);
-}
-
 function avgY(landmarks){
   return landmarks.reduce((s,p)=>s+p.y,0)/landmarks.length;
-}
-function wristX(landmarks){
-  return landmarks[0].x;
 }
 
 /* ---------------- mediapipe hands ---------------- */
@@ -577,10 +436,11 @@ function drawHand(landmarks, color){
 /* ---------------- left hand -> chords ---------------- */
 
 function processLeftHand(landmarks){
-  if(!audioReady) return;
+  if(!running) return;
   if(!landmarks){
     setChord(-1);
     document.getElementById('chordFingers').textContent = '';
+    document.getElementById('chordExprVal').textContent = '—';
     return;
   }
   const fingers = countExtendedFingers(landmarks);
@@ -591,34 +451,34 @@ function processLeftHand(landmarks){
     const idx = Math.min(fingers, progression.length) - 1;
     setChord(idx);
   }
-  const y = avgY(landmarks);
 
-  // height controls volume: bottom of frame = quiet, top = the ceiling set by the volume slider
-  const chordCeil = parseFloat(document.getElementById('chordVol').value);
-  const chordVolTarget = -30 + (1-y) * (chordCeil - (-30));
-  chordSynth.volume.rampTo(chordVolTarget, 0.05);
+  // height controls volume: bottom of frame = quiet, top = the ceiling set by the slider.
+  // Sent continuously as MIDI CC11 (Expression) on channel 1 so it actually changes the
+  // loudness of the notes already held in Logic/GarageBand, not just a value in the browser.
+  const y = avgY(landmarks);
+  const ceil = parseFloat(document.getElementById('chordVol').value);
+  const expr = (1 - y) * ceil;
+  document.getElementById('chordExprVal').textContent = Math.round(expr);
+  if(document.getElementById('chordMidiEnable').checked){
+    midiExpression(0, expr);
+  }
 }
 
 function setChord(idx){
   if(idx === currentChordIdx) return;
   currentChordIdx = idx;
-  if(heldChordNotes.length){
-    try{ chordSynth.triggerRelease(heldChordNotes); }catch(e){}
-    heldChordNotes = [];
-  }
   if(document.getElementById('chordMidiEnable').checked){
     lastChordMidiNotes.forEach(n => midiNoteOff(0, n));
-    lastChordMidiNotes = [];
   }
+  heldChordNotes = [];
+  lastChordMidiNotes = [];
   if(idx === -1){
     document.getElementById('chordVal').textContent = '—';
     return;
   }
   const sym = progression[idx];
-  const {root, quality} = parseChordSymbol(sym);
   const octave = parseInt(document.getElementById('chordOctave').value, 10) || 5;
-  const notes = chordNotes(root, quality, octave);
-  chordSynth.triggerAttack(notes);
+  const notes = resolveChordVoicing(sym, octave);
   heldChordNotes = notes;
   document.getElementById('chordVal').textContent = sym;
 
@@ -632,10 +492,11 @@ function setChord(idx){
 /* ---------------- right hand -> bass ---------------- */
 
 function processRightHand(landmarks){
-  if(!audioReady){ return; }
+  if(!running) return;
   if(!landmarks){
     setBass(-1);
     document.getElementById('bassFingers').textContent = '';
+    document.getElementById('bassExprVal').textContent = '—';
     return;
   }
   const fingers = countExtendedFingers(landmarks);
@@ -647,30 +508,28 @@ function processRightHand(landmarks){
     setBass(idx);
   }
 
-  // height controls volume: bottom of frame = quiet, top = the ceiling set by the volume slider
   const y = avgY(landmarks);
-  const bassCeil = parseFloat(document.getElementById('bassVol').value);
-  const bassVolTarget = -30 + (1-y) * (bassCeil - (-30));
-  bassSynth.volume.rampTo(bassVolTarget, 0.05);
+  const ceil = parseFloat(document.getElementById('bassVol').value);
+  const expr = (1 - y) * ceil;
+  document.getElementById('bassExprVal').textContent = Math.round(expr);
+  if(document.getElementById('bassMidiEnable').checked){
+    midiExpression(1, expr);
+  }
 }
 
 function setBass(idx){
   if(idx === currentBassIdx) return;
   currentBassIdx = idx;
-  if(heldBassNote){
-    try{ bassSynth.triggerRelease(); }catch(e){}
-    heldBassNote = null;
-  }
   if(document.getElementById('bassMidiEnable').checked && lastBassMidiNote !== null){
     midiNoteOff(1, lastBassMidiNote);
-    lastBassMidiNote = null;
   }
+  heldBassNote = null;
+  lastBassMidiNote = null;
   if(idx === -1){
     document.getElementById('bassVal').textContent = '—';
     return;
   }
   const note = bassNotes[idx];
-  bassSynth.triggerAttack(note);
   heldBassNote = note;
   document.getElementById('bassVal').textContent = note;
 
@@ -703,14 +562,12 @@ document.getElementById('startBtn').addEventListener('click', async ()=>{
       return;
     }
 
-    await Tone.start();
-    audioReady = true;
-
     // Request the camera directly first so we get a clear permission error if denied.
     const stream = await navigator.mediaDevices.getUserMedia({video:true});
     videoEl.srcObject = stream;
     await videoEl.play();
 
+    running = true;
     document.getElementById('startOverlay').style.display = 'none';
 
     const camera = new Camera(videoEl, {
