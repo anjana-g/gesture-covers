@@ -18,7 +18,7 @@ gesture-covers/
 
 1. Copy `_template/` to a new folder named after the song (e.g. `nee-paartha-paarvai/`)
 2. Open its `index.html` and edit:
-   - the `<title>` and the `TERE PAAS HOON MAIN`-style heading near the top of the page
+   - the `<title>` and the `TERE PAAS MAIN`-style heading near the top of the page
    - the default chord progression (`progInput` value) and bass notes (`bassInput` value)
 3. Run it (see below) and tweak instrument/tone choices per song from the on-screen panels —
    no need to touch the code for that part.
